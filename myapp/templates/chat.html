@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Chat Window</title>
+    <title>Chat Penceresi</title>
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
     <link rel="stylesheet" href="/static/chat.css">
     <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
@@ -36,6 +36,7 @@
             <div class="new_chat">
               <div id="new_chat_overlay"></div>
               <button id="new_chat_btn"><i class="fa fa-plus"></i> New Chat</button>
+              <button id="logout_btn">Logout</button>
               <form method="POST" action="{{ url_for('views.new_chat') }}" id="new_chat_form">
                 <label for="email"><strong>Email: </strong></label>
                 <input type="email" name="email" placeholder="enter friend's email here...">
@@ -97,9 +98,7 @@
         </div>
       </div>
 
-      <p class="text-center top_spac"> Design by
-        <a target="_blank" href="https://www.linkedin.com/in/sunil-rajput-nattho-singh/">Sunil Rajput</a>
-      </p>
+      
     </div>
   </div>
   <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
@@ -134,7 +133,8 @@
     }
 
     // SOCKET CODE
-    var socket = io.connect('http://' + document.domain + ':' + location.port + '/?rid=' + {{ room_id }} );
+    var socket = io.connect('http://' + document.domain + ':' + location.port + '/?rid={{ room_id }}');
+
     //scrollDown()
     socket.on('connect', function () {
       socket.emit('join-chat', {
@@ -153,10 +153,10 @@
       socket.emit('outgoing', {
         timestamp: parseInt(Date.now()/1000),
         sender_username: "{{ user_data['username'] }}",
-        sender_id: {{ user_data["id"] }},
-        message : user_input,
+        sender_id: "{{ user_data['id'] }}", // Ensure sender_id is treated as a string
+        message: user_input,
         rid: '{{ room_id }}'
-        } )
+      });
     //scrollDown();
     $('div.msg_history').append(`
             <div class="outgoing_msg">
@@ -212,25 +212,35 @@
     }
  </script>
 
-  <script>
-    window.onload = function () {
+<script>
+  window.onload = function () {
       let newChatBtn = document.querySelector('#new_chat_btn');
       let newChatForm = document.querySelector('#new_chat_form');
       let newChatoverlay = document.querySelector('#new_chat_overlay');
+      
       newChatBtn.onclick = (e) => {
-        if (e.target === newChatBtn) {
-          newChatForm.style.display = "block";
-          newChatoverlay.style.display = 'block';
+          if (e.target === newChatBtn) {
+              newChatForm.style.display = "block";
+              newChatoverlay.style.display = 'block';
+          }
+      };
 
-        }
-      }
       newChatoverlay.onclick = (e) => {
-        if (e.target === newChatoverlay) {
-          newChatForm.style.display = "none";
-          newChatoverlay.style.display = 'none';
-        }
-      }
-    }
-  </script>
+          if (e.target === newChatoverlay) {
+              newChatForm.style.display = "none";
+              newChatoverlay.style.display = 'none';
+          }
+      };
+
+      let logoutBtn = document.querySelector('#logout_btn');
+      logoutBtn.onclick = () => {
+          // Emit logout event to the server
+          socket.emit('logout');
+          // Redirect to auth.html
+          window.location.href = "/login";
+      };
+  }
+</script>
+  
 </body>
 </html>

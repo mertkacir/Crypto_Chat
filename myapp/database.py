@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from passlib.hash import pbkdf2_sha256
-
+from cryptography.fernet import Fernet
 
 db = SQLAlchemy()
 
@@ -50,6 +50,21 @@ class ChatMessage(db.Model):
     sender_id = db.Column(db.Integer, nullable=False)
     sender_username = db.Column(db.String(50), nullable=False)
     room_id = db.Column(db.String(50), db.ForeignKey('messages.room_id'), nullable=False)
+    encrypted_content = db.Column(db.Text)
+    key = b'yV8RmnaiJ-f4o1kaGyYiJKjm2wSaqOJhRsjvzTD0Tv8='
+    cipher_suite = Fernet(key)
+
+    def encrypt_message(self, message):
+        # Encrypt the message using the secret key
+        self.encrypted_content = self.cipher_suite.encrypt(message.encode()).decode()
+
+    def decrypt_message(self):
+        # Decrypt the encrypted message
+        if self.encrypted_content:
+            decrypted_message = self.cipher_suite.decrypt(self.encrypted_content.encode()).decode()
+            return decrypted_message
+        else:
+            return None
 
     def save_to_db(self):
         db.session.add(self)

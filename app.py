@@ -1,9 +1,21 @@
 from myapp import create_app
 from myapp.database import db, Message, ChatMessage
 from flask_socketio import emit, join_room, leave_room
+from cryptography.fernet import Fernet
+import base64
+import csv
+from flask_migrate import Migrate
 
 app, socket = create_app()
 
+migrate = Migrate(app, db)
+
+# Read the secret key from the keys.csv file
+with open('keys.csv', 'r') as csvfile:
+    reader = csv.DictReader(csvfile)
+    secret_key = next(reader)['key'].encode('utf-8')
+
+cipher_suite = Fernet(secret_key)
 
 # COMMUNICATION ARCHITECTURE
 
@@ -19,6 +31,23 @@ def join_private_chat(data):
         # include_self=False,
     )
 
+@socket.on("message")
+def handle_message(json):
+    room_id = json["rid"]
+    sender_username = json["sender_username"]
+    timestamp = json["timestamp"]
+    
+    # Decrypt the message before displaying it
+    decrypted_message = cipher_suite.decrypt(json["message"].encode()).decode()
+
+    # Emit the decrypted message to the client
+    decrypted_json = {
+        "rid": room_id,
+        "sender_username": sender_username,
+        "timestamp": timestamp,
+        "message": decrypted_message
+    }
+    socket.emit("message", decrypted_json, room=room_id, include_self=False)
 
 # Outgoing event handler
 @socket.on("outgoing")
@@ -38,9 +67,10 @@ def chatting_event(json, methods=["GET", "POST"]):
     # Get the message entry for the chat room
     message_entry = Message.query.filter_by(room_id=room_id).first()
 
+    encrypted_message = cipher_suite.encrypt(message.encode()).decode()
     # Add the new message to the conversation
     chat_message = ChatMessage(
-        content=message,
+        encrypted_content=encrypted_message,
         timestamp=timestamp,
         sender_id=sender_id,
         sender_username=sender_username,
