@@ -137,19 +137,21 @@
 
     //scrollDown()
     socket.on('connect', function () {
+      console.log('Socket connected!');
       socket.emit('join-chat', {
         rid: '{{ room_id }}'
       })
     })
 
     socket.on('joined-chat', function (msg) {
+      console.log('Joined chat room!');
       console.log(msg)
     })
 
     var form = $('#chat_form').on('submit', function (e) {
       e.preventDefault()
       let user_input = $('input.message').val()
-
+      console.log('Sending message:', user_input);
       socket.emit('outgoing', {
         timestamp: parseInt(Date.now()/1000),
         sender_username: "{{ user_data['username'] }}",
@@ -158,13 +160,16 @@
         rid: '{{ room_id }}'
       });
     //scrollDown();
+    if (user_input.trim() !== '') {
     $('div.msg_history').append(`
-            <div class="outgoing_msg">
-              <div class="sent_msg">
+        <div class="outgoing_msg">
+            <div class="sent_msg">
                 <p>${user_input}</p>
-                <span class="time_date"> ${formatDate(new Date())}</span> </div>
+                <span class="time_date"> ${formatDate(new Date())}</span>
             </div>
-          `)
+        </div>
+    `);
+}
     document.getElementById("last-message").innerHTML = user_input
     $('input.message').val('').focus()
     scrollDown();

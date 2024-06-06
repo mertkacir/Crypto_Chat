@@ -2,19 +2,16 @@ from myapp import create_app
 from myapp.database import db, Message, ChatMessage
 from flask_socketio import emit, join_room, leave_room
 from cryptography.fernet import Fernet
-import base64
-import csv
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 from flask_migrate import Migrate
 
 app, socket = create_app()
-
 migrate = Migrate(app, db)
 
-# Read the secret key from the keys.csv file
-with open('keys.csv', 'r') as csvfile:
-    reader = csv.DictReader(csvfile)
-    secret_key = next(reader)['key'].encode('utf-8')
-
+# Specify the secret key directly
+secret_key = b'yV8RmnaiJ-f4o1kaGyYiJKjm2wSaqOJhRsjvzTD0Tv8='
 cipher_suite = Fernet(secret_key)
 
 # COMMUNICATION ARCHITECTURE
@@ -22,14 +19,35 @@ cipher_suite = Fernet(secret_key)
 # Join-chat event. Emit online message to other users and join the room
 @socket.on("join-chat")
 def join_private_chat(data):
-    room = data["rid"]
-    join_room(room=room)
-    socket.emit(
-        "joined-chat",
-        {"msg": f"{room} is now online."},
-        room=room,
-        # include_self=False,
-    )
+    room_id = data['rid']
+    join_room(room_id)
+    messages = ChatMessage.query.filter_by(room_id=room_id).order_by(ChatMessage.timestamp).all()
+    decrypted_messages = []
+
+    for chat_message in messages:
+        if chat_message.encrypted_content is not None:
+            #logging.debug(f"Attempting to decrypt: {chat_message.encrypted_content}")
+            try:
+                decrypted_content = cipher_suite.decrypt(chat_message.encrypted_content.encode()).decode()
+            except Exception as e:
+                logging.error(f"Decryption failed for content: {chat_message.encrypted_content} - Error: {e}")
+                decrypted_content = "Decryption failed"
+            decrypted_messages.append({
+                'timestamp': chat_message.timestamp,
+                'sender_username': chat_message.sender_username,
+                'sender_id': chat_message.sender_id,
+                'message': decrypted_content
+            })
+        else:
+            logging.error(f"Encrypted content is None for message ID {chat_message.id}")
+            decrypted_messages.append({
+                'timestamp': chat_message.timestamp,
+                'sender_username': chat_message.sender_username,
+                'sender_id': chat_message.sender_id,
+                'message': None
+            })
+
+    emit('joined-chat', {'messages': decrypted_messages}, room=room_id)
 
 @socket.on("message")
 def handle_message(json):
@@ -38,7 +56,12 @@ def handle_message(json):
     timestamp = json["timestamp"]
     
     # Decrypt the message before displaying it
-    decrypted_message = cipher_suite.decrypt(json["message"].encode()).decode()
+    #logging.debug(f"Attempting to decrypt: {json['message']}")
+    try:
+        decrypted_message = cipher_suite.decrypt(json["message"].encode()).decode()
+    except Exception as e:
+        logging.error(f"Decryption failed for incoming message - Error: {e}")
+        decrypted_message = "Decryption failed"
 
     # Emit the decrypted message to the client
     decrypted_json = {
@@ -85,7 +108,7 @@ def chatting_event(json, methods=["GET", "POST"]):
         message_entry.save_to_db()
     except Exception as e:
         # Handle the database error, e.g., log the error or send an error response to the client.
-        print(f"Error saving message to the database: {str(e)}")
+        logging.error(f"Error saving message to the database: {e}")
         db.session.rollback()
 
     # Emit the message(s) sent to other users in the room
@@ -95,7 +118,6 @@ def chatting_event(json, methods=["GET", "POST"]):
         room=room_id,
         include_self=False,
     )
-
 
 if __name__ == "__main__":
     socket.run(app, allow_unsafe_werkzeug=True, debug=True)

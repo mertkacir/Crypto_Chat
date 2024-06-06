@@ -16,4 +16,3 @@ try:
     print(f"Decrypted message: {decrypted_message}")
 except InvalidToken as e:
     print(f"Decryption failed: {e}")
-

@@ -162,39 +162,23 @@ def new_chat():
 @views.route("/chat/", methods=["GET", "POST"])
 @login_required
 def chat():
-    """
-    Renders the chat interface and displays chat messages.
-
-    Returns:
-        Response: Flask response object.
-    """
-    # Get the room id in the URL or set to None
     room_id = request.args.get("rid", None)
 
-    # Get the chat list for the user
     current_user_id = session["user"]["id"]
     current_user_chats = Chat.query.filter_by(user_id=current_user_id).first()
     chat_list = current_user_chats.chat_list if current_user_chats else []
 
-    # Initialize context that contains information about the chat room
     data = []
-
     for chat in chat_list:
-        # Query the database to get the username of users in a user's chat list
+        user_id = chat["user_id"]
         username = User.query.get(chat["user_id"]).username
         is_active = room_id == chat["room_id"]
 
         try:
-            # Get the Message object for the chat room
             message = Message.query.filter_by(room_id=chat["room_id"]).first()
-
-            # Get the last ChatMessage object in the Message's messages relationship
             last_message = message.messages[-1]
-
-            # Get the message content of the last ChatMessage object
-            last_message_content = last_message.content
+            last_message_content = last_message.decrypt_message()
         except (AttributeError, IndexError):
-            # Set variable to this when no messages have been sent to the room
             last_message_content = "This place is empty. No messages ..."
 
         data.append({
@@ -204,8 +188,17 @@ def chat():
             "last_message": last_message_content,
         })
 
-    # Get all the message history in a certain room
-    messages = Message.query.filter_by(room_id=room_id).first().messages if room_id else []
+    messages = []
+    if room_id:
+        message_objects = Message.query.filter_by(room_id=room_id).first().messages
+        for msg in message_objects:
+            msg_content = msg.decrypt_message()
+            print(f"Decrypted message: {msg_content}")  # Debug logging
+            messages.append({
+                "content": msg_content,
+                "timestamp": msg.timestamp,
+                "sender_username": msg.sender_username
+            })
 
     return render_template(
         "chat.html",
@@ -214,7 +207,6 @@ def chat():
         data=data,
         messages=messages,
     )
-
 
 # Custom time filter to be used in the jinja template
 @views.app_template_filter("ftime")
@@ -253,11 +245,9 @@ def get_name():
 
 @views.route('/get_messages')
 def get_messages():
-    """
-    query the database for messages o in a particular room id
-    :return: all messages
-    """
-    pass
+    rid = request.args.get('rid')
+    messages = ChatMessage.query.filter_by(room_id=rid).all()
+    return jsonify([{'content': message.content, 'timestamp': message.timestamp} for message in messages])
 
 
 @views.route('/leave')
