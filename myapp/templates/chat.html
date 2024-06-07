@@ -169,10 +169,13 @@
             </div>
         </div>
     `);
+    updateRecentMessage('{{ room_id }}', user_input);
+    $('input.message').val('').focus();
+            scrollDown();
 }
-    document.getElementById("last-message").innerHTML = user_input
-    $('input.message').val('').focus()
-    scrollDown();
+    //document.getElementById("last-message").innerHTML = user_input
+    //$('input.message').val('').focus()
+    //scrollDown();
         } )
 
     socket.on('message', function (msg) {
@@ -184,12 +187,22 @@
                   <span class="time_date"> ${formatDate(new Date())}</span></div>
               </div>
             </div>`)
+      updateRecentMessage(msg.room_id, msg.message);
       scrollDown();
-      document.getElementById("last-message").innerHTML = msg.message
+      //document.getElementById("last-message").innerHTML = msg.message
     })
 
   </script>
   <script>
+
+      function updateRecentMessage(room_id, message) {
+        const recentMessages = document.querySelectorAll('.chat_list');
+        recentMessages.forEach(chat => {
+            if (chat.id === room_id) {
+                chat.querySelector('#last-message').textContent = message;
+            }
+        });
+      }
     function formatDate(date) {
       // Get the hours, minutes, and seconds from the Date object.
       const hours = date.getHours();
@@ -214,6 +227,9 @@
 
       // Return the time format string.
       return timeFormat;
+    }
+    function scrollDown() {
+        document.querySelector('.msg_history').scrollTop = document.querySelector('.msg_history').scrollHeight;
     }
  </script>
 

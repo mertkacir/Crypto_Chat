@@ -170,7 +170,7 @@ def chat():
 
     data = []
     for chat in chat_list:
-        user_id = chat["user_id"]
+        #user_id = chat["user_id"]
         username = User.query.get(chat["user_id"]).username
         is_active = room_id == chat["room_id"]
 
@@ -193,7 +193,7 @@ def chat():
         message_objects = Message.query.filter_by(room_id=room_id).first().messages
         for msg in message_objects:
             msg_content = msg.decrypt_message()
-            print(f"Decrypted message: {msg_content}")  # Debug logging
+            #print(f"Decrypted message: {msg_content}")  # Debug logging
             messages.append({
                 "content": msg_content,
                 "timestamp": msg.timestamp,
